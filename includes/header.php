@@ -44,28 +44,74 @@ $title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' • ' . APP_NAME :
             <i class="ri-image-line"></i> Medios
           </a>
         </li>
-        <?php if (is_admin()): ?>
-        <li>
-          <a href="users.php" class="nav-link <?= $currentPage === 'users.php' ? 'active' : '' ?>">
-            <i class="ri-user-settings-line"></i> Usuarios
-          </a>
-        </li>
-        <li>
-          <a href="logs.php" class="nav-link <?= $currentPage === 'logs.php' ? 'active' : '' ?>">
-            <i class="ri-terminal-box-line"></i> Logs
-          </a>
-        </li>
-        <?php endif; ?>
       </ul>
     </nav>
 
-    <div class="nav-user">
-      <span class="user-badge" title="<?= htmlspecialchars($user['email'] ?? '') ?>">
-        <i class="ri-user-3-line"></i> <?= htmlspecialchars($user['name'] ?? $user['email'] ?? 'Admin') ?>
-      </span>
-      <a href="logout.php" class="btn-logout" title="Cerrar Sesión">
-        <i class="ri-logout-box-r-line"></i> Salir
-      </a>
+    <div class="nav-user-dropdown" id="user-dropdown-container">
+      <button 
+        type="button" 
+        class="user-dropdown-trigger" 
+        id="user-menu-btn" 
+        aria-expanded="false" 
+        aria-haspopup="true" 
+        title="Opciones de perfil y configuración"
+      >
+        <span class="user-avatar-circle">
+          <?= strtoupper(mb_substr((string) ($user['name'] ?? $user['email'] ?? 'U'), 0, 1)) ?>
+        </span>
+        <span class="user-name-text"><?= htmlspecialchars((string) ($user['name'] ?? $user['email'] ?? 'Usuario')) ?></span>
+        <i class="ri-arrow-down-s-line dropdown-arrow"></i>
+      </button>
+
+      <div class="user-dropdown-menu" id="user-dropdown-menu" role="menu" aria-labelledby="user-menu-btn">
+        <div class="dropdown-header">
+          <div class="dropdown-user-name"><?= htmlspecialchars((string) ($user['name'] ?? 'Usuario')) ?></div>
+          <div class="dropdown-user-email"><?= htmlspecialchars((string) ($user['email'] ?? '')) ?></div>
+          <div class="dropdown-user-role">
+            <span class="role-pill <?= is_admin() ? 'role-admin' : 'role-user' ?>">
+              <i class="<?= is_admin() ? 'ri-shield-check-line' : 'ri-user-line' ?>"></i>
+              <?= is_admin() ? 'Administrador' : 'Usuario' ?>
+            </span>
+          </div>
+        </div>
+
+        <div class="dropdown-divider"></div>
+
+        <div class="dropdown-section">
+          <a href="profile.php" class="dropdown-item <?= $currentPage === 'profile.php' ? 'active' : '' ?>" role="menuitem">
+            <i class="ri-user-smile-line"></i>
+            <span>Mi Perfil y Contraseña</span>
+          </a>
+        </div>
+
+        <?php if (is_admin()): ?>
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-section-title">Configuración</div>
+        <div class="dropdown-section">
+          <a href="users.php" class="dropdown-item <?= $currentPage === 'users.php' ? 'active' : '' ?>" role="menuitem">
+            <i class="ri-group-line"></i>
+            <span>Usuarios</span>
+          </a>
+          <a href="logs.php" class="dropdown-item <?= $currentPage === 'logs.php' ? 'active' : '' ?>" role="menuitem">
+            <i class="ri-terminal-box-line"></i>
+            <span>Logs</span>
+          </a>
+          <a href="smtp.php" class="dropdown-item <?= $currentPage === 'smtp.php' ? 'active' : '' ?>" role="menuitem">
+            <i class="ri-mail-settings-line"></i>
+            <span>SMTP</span>
+          </a>
+        </div>
+        <?php endif; ?>
+
+        <div class="dropdown-divider"></div>
+
+        <div class="dropdown-section">
+          <a href="logout.php" class="dropdown-item dropdown-item-danger" role="menuitem">
+            <i class="ri-logout-box-r-line"></i>
+            <span>Cerrar Sesión</span>
+          </a>
+        </div>
+      </div>
     </div>
     <?php endif; ?>
   </div>

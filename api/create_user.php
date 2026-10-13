@@ -103,10 +103,36 @@ try {
     $newId = (int) $pdo->lastInsertId();
     app_log('Usuario creado exitosamente', ['user_id' => $newId, 'email' => $email, 'role' => $role]);
 
+    // Intento de notificación por correo si SMTP está configurado
+    $emailSent = false;
+    $emailMsg = '';
+    try {
+        require_once dirname(__DIR__) . '/includes/Mailer.php';
+        $smtpConfig = get_smtp_config();
+        if (!empty($smtpConfig['host'])) {
+            $mailRes = Mailer::sendAccountCreatedEmail($name, $email, $password);
+            $emailSent = $mailRes['success'];
+            $emailMsg = $mailRes['message'];
+            app_log('Notificación de cuenta nueva enviada por SMTP', [
+                'to'      => $email,
+                'exito'   => $emailSent,
+                'mensaje' => $emailMsg,
+            ]);
+        }
+    } catch (\Throwable $mEx) {
+        app_log('No se pudo enviar correo de bienvenida por SMTP', ['error' => $mEx->getMessage()]);
+    }
+
+    $successMsg = 'Usuario creado exitosamente con rol ' . strtoupper($role) . '.';
+    if ($emailSent) {
+        $successMsg .= ' Se enviaron las credenciales de acceso a su correo electrónico.';
+    }
+
     echo json_encode([
-        'success' => true,
-        'message' => 'Usuario creado exitosamente con rol ' . strtoupper($role) . '.',
-        'data'    => [
+        'success'    => true,
+        'message'    => $successMsg,
+        'email_sent' => $emailSent,
+        'data'       => [
             'id'    => $newId,
             'name'  => $name,
             'email' => $email,

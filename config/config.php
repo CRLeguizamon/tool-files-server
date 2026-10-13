@@ -12,7 +12,7 @@ date_default_timezone_set('America/Bogota');
 
 // Título de la aplicación
 define('APP_NAME', 'Image Optimizer');
-define('APP_VERSION', '1.0.4');
+define('APP_VERSION', '1.0.7');
 
 // Rutas del servidor
 define('ROOT_PATH', dirname(__DIR__));

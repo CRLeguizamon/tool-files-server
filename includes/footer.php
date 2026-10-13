@@ -21,7 +21,7 @@ declare(strict_types=1);
 <div id="toast-container" class="toast-container"></div>
 
 <footer class="site-footer">
-  <p><?= APP_NAME ?> &bull; Sistema minimalista de optimización y gestión de imágenes &bull; Hostinger PHP 8.5</p>
+  <p>Sistema minimalista de optimización y gestión de imágenes - Versión <?= APP_VERSION ?></p>
 </footer>
 
 <script src="assets/js/app.js?v=<?= APP_VERSION ?>"></script>

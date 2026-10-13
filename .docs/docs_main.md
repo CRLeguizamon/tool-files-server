@@ -1,6 +1,6 @@
 # Technical Architecture & Codebase Specification
 **Application:** Image Optimizer (Web Media Processing Platform)  
-**Version:** 1.0.2  
+**Version:** 1.0.7  
 **Target Environment:** Hostinger Web Hosting (PHP 8.5, LiteSpeed/Apache, MySQL 5.7+/8.0+)  
 **Design Paradigm:** Native Vanilla Architecture (Zero heavy dependencies: Native PHP + Vanilla JS ES6+ + Vanilla CSS3)  
 **Document Purpose:** Optimized for AI agent parsing, semantic understanding, programmatic maintenance, and architectural navigation.
@@ -15,27 +15,35 @@
 5. [Core Backend Modules & Classes (`includes/`)](#5-core-backend-modules--classes-includes)
    - 5.1 [`ImageProcessor.php` (Image Processing Engine)](#51-imageprocessorphp-image-processing-engine)
    - 5.2 [`auth.php` (Authentication, Sessions & RBAC)](#52-authphp-authentication-sessions--rbac)
-   - 5.3 [`logger.php` (Structured Telemetry)](#53-loggerphp-structured-telemetry)
-   - 5.4 [`header.php` & `footer.php` (Templating & Layouts)](#54-headerphp--footerphp-templating--layouts)
+   - 5.3 [`settings.php` (System Configuration & SMTP Persistence)](#53-settingsphp-system-configuration--smtp-persistence)
+   - 5.4 [`Mailer.php` (Native Socket SMTP Engine & HTML Templates)](#54-mailerphp-native-socket-smtp-engine--html-templates)
+   - 5.5 [`logger.php` (Structured Telemetry)](#55-loggerphp-structured-telemetry)
+   - 5.6 [`header.php` & `footer.php` (Templating, Profile Dropdown & Layouts)](#56-headerphp--footerphp-templating-profile-dropdown--layouts)
 6. [API Layer & REST Endpoints (`api/`)](#6-api-layer--rest-endpoints-api)
    - 6.1 [`POST api/process_image.php`](#61-post-apiprocess_imagephp)
    - 6.2 [`POST api/delete_media.php`](#62-post-apidelete_mediaphp)
    - 6.3 [`POST api/create_user.php`](#63-post-apicreate_userphp)
-   - 6.4 [`POST api/clear_logs.php`](#64-post-apiclear_logsphp)
-   - 6.5 [`GET api/download_log.php`](#65-get-apidownload_logphp)
-   - 6.6 [`GET api/export_csv.php`](#66-get-apiexport_csvphp)
-   - 6.7 [`GET api/download_zip.php`](#67-get-apidownload_zipphp)
+   - 6.4 [`POST api/edit_user.php`](#64-post-apiedit_userphp)
+   - 6.5 [`POST api/update_profile.php`](#65-post-apiupdate_profilephp)
+   - 6.6 [`POST api/save_smtp.php`](#66-post-apisave_smtpphp)
+   - 6.7 [`POST api/test_smtp.php`](#67-post-apitest_smtpphp)
+   - 6.8 [`POST api/clear_logs.php`](#68-post-apiclear_logsphp)
+   - 6.9 [`GET api/download_log.php`](#69-get-apidownload_logphp)
+   - 6.10 [`GET api/export_csv.php`](#610-get-apiexport_csvphp)
+   - 6.11 [`GET api/download_zip.php`](#611-get-apidownload_zipphp)
 7. [Frontend Controllers & Views (Root Directory)](#7-frontend-controllers--views-root-directory)
    - 7.1 [`index.php` (Upload & Optimization Center)](#71-indexphp-upload--optimization-center)
    - 7.2 [`media.php` (Media Library & Metadata Explorer)](#72-mediaphp-media-library--metadata-explorer)
-   - 7.3 [`users.php` (Access Control & User Management)](#73-usersphp-access-control--user-management)
-   - 7.4 [`logs.php` (Diagnostics & Audit Console)](#74-logsphp-diagnostics--audit-console)
-   - 7.5 [`login.php` & `logout.php` (Session Gateways)](#75-loginphp--logoutphp-session-gateways)
-   - 7.6 [`test_debug.php` (System Diagnostics Probe)](#76-test_debugphp-system-diagnostics-probe)
+   - 7.3 [`profile.php` (Personal Profile & Password Management)](#73-profilephp-personal-profile--password-management)
+   - 7.4 [`smtp.php` (SMTP Server Configuration & Live Diagnostics)](#74-smtpphp-smtp-server-configuration--live-diagnostics)
+   - 7.5 [`users.php` (Access Control & User Management)](#75-usersphp-access-control--user-management)
+   - 7.6 [`logs.php` (Diagnostics & Audit Console)](#76-logsphp-diagnostics--audit-console)
+   - 7.7 [`login.php` & `logout.php` (Session Gateways)](#77-loginphp--logoutphp-session-gateways)
+   - 7.8 [`test_debug.php` (System Diagnostics Probe)](#78-test_debugphp-system-diagnostics-probe)
 8. [Client-Side Architecture (`assets/js/` & `assets/css/`)](#8-client-side-architecture-assetsjs--assetscss)
    - 8.1 [`uploader.js` (Sequential AJAX Batch Processing)](#81-uploaderjs-sequential-ajax-batch-processing)
    - 8.2 [`media.js` (DOM Filter, Clipboard & Deletion Dispatch)](#82-mediajs-dom-filter-clipboard--deletion-dispatch)
-   - 8.3 [`app.js` (Global UI Utilities, Toast & Lightbox)](#83-appjs-global-ui-utilities-toast--lightbox)
+   - 8.3 [`app.js` (Global UI Utilities, Toast, Lightbox & Profile Dropdown)](#83-appjs-global-ui-utilities-toast-lightbox--profile-dropdown)
    - 8.4 [`style.css` (Design System & Design Tokens)](#84-stylecss-design-system--design-tokens)
 9. [Security, Hardening & Server Protection](#9-security-hardening--server-protection)
 10. [AI Developer Workflow & Operational Runbook](#10-ai-developer-workflow--operational-runbook)
@@ -52,16 +60,21 @@ The **Image Optimizer** application is a lightweight, high-performance web asset
 - **Dual-Engine Processing:** Utilizes `Imagick` (ImageMagick) as the primary image transformation driver with dynamic fallback to PHP `GD` if `Imagick` is unavailable or fails.
 - **Strict SEO & Clean Filename Standardization:** Transforms arbitrary uploaded file basenames into lowercase, accent-free, URL-friendly slugs (e.g., `Foto de Cumpleaños! (1).PNG` -> `foto-de-cumpleanos-1.jpg`).
 - **Guaranteed Size Optimization (< 1 MB target):** Intelligent compression pipelines (subsampling 4:2:0, progressive JPEG rendering, metadata stripping, Lanczos/Triangle resampling) produce web-ready assets significantly below 1 MB.
+- **Native SMTP Transport & Email Templating:** Implements RFC 5321 communication directly over PHP sockets (`stream_socket_client`) with SSL (`465`) and STARTTLS (`587`), zero Composer dependencies, live interactive step-by-step diagnostic logging, and modular responsive HTML templates for account onboarding, password resets, and connectivity verification.
 - **Zero-Dependency Core:** Eliminates Composer packages, Node build steps, and framework overhead, ensuring 100% portability via standard FTP/SFTP deployment.
 
 ```mermaid
 graph TD
-    Client[Web Browser Client] -->|AJAX Fetch (Sequential Queue)| API[api/process_image.php]
+    Client[Web Browser Client] -->|AJAX Fetch Sequential Queue| API[api/process_image.php]
     Client -->|Auto-Download Trigger| ZipAPI[api/download_zip.php]
-    Client -->|Standard HTTP GET| Views[Root Views: index, media, users, logs]
+    Client -->|Profile & Password Updates| ProfileAPI[api/update_profile.php]
+    Client -->|User Management Updates| EditUserAPI[api/edit_user.php]
+    Client -->|SMTP Configuration & Test| SmtpAPI[api/save_smtp.php & api/test_smtp.php]
+    Client -->|Standard HTTP GET| Views[Root Views: index, media, profile, smtp, users, logs]
     
-    API --> Auth[includes/auth.php (Session + CSRF Verification)]
+    API --> Auth[includes/auth.php Session + CSRF Verification]
     API --> Processor[includes/ImageProcessor.php]
+    SmtpAPI --> MailerEngine[includes/Mailer.php Native SMTP Sockets]
     
     Processor --> EngineCheck{Imagick Loaded?}
     EngineCheck -->|Yes| ImagickEngine[processWithImagick()]
@@ -70,7 +83,7 @@ graph TD
     Processor -->|Standard Mode| DiskUploads[(File System: uploads/ & uploads/thumbs/)]
     Processor -->|ZIP Mode| TempBatch[(Temp Dir: uploads/temp_zip/batch_id/)]
     ZipAPI -->|Pack, Stream & Unlink| TempBatch
-    API -->|Standard Mode| DB[(MySQL Database: media table)]
+    API -->|Standard Mode| DB[(MySQL Database: media, users, settings tables)]
     API --> Logger[includes/logger.php -> logs/debug.log]
 ```
 
@@ -89,18 +102,22 @@ graph TD
 │   └── sftp.json                 # Remote FTP deployment server settings
 ├── api/
 │   ├── clear_logs.php            # Endpoint to truncate logs/debug.log
-│   ├── create_user.php           # Endpoint to create admin or customer users
-│   ├── delete_media.php          # Endpoint to delete media DB record & unlink files
+│   ├── create_user.php           # Endpoint to create admin or customer users + dispatch SMTP welcome
+│   ├── delete_media.php          # Endpoint to delete media DB record & unlink files (single & bulk)
 │   ├── download_log.php          # Raw stream download for debug.log
 │   ├── download_zip.php          # Temporary batch ZIP packager, streamer & auto-cleaner
+│   ├── edit_user.php             # Endpoint to update existing users (name, email, role, password)
 │   ├── export_csv.php            # Excel-compatible UTF-8 BOM CSV exporter
-│   └── process_image.php         # Sequential single-image processor endpoint
+│   ├── process_image.php         # Sequential single-image processor endpoint
+│   ├── save_smtp.php             # Endpoint to persist SMTP server configuration
+│   ├── test_smtp.php             # Real-time socket SMTP test runner with live transcript
+│   └── update_profile.php        # Authenticated self-service profile and password updater
 ├── assets/
 │   ├── css/
-│   │   └── style.css             # Main stylesheet (Design tokens, components, utilities)
+│   │   └── style.css             # Main stylesheet (Design tokens, components, profile dropdown, SMTP)
 │   └── js/
-│       ├── app.js                # Core global utilities (Toasts, clipboard, lightbox)
-│       ├── media.js              # Media library DOM operations & search filters
+│       ├── app.js                # Core global utilities (Toasts, clipboard, lightbox, profile dropdown)
+│       ├── media.js              # Media library DOM operations, search filters & bulk actions
 │       └── uploader.js           # Drag-and-drop & sequential AJAX queue coordinator
 ├── config/
 │   ├── config.php                # System constants, dimensions, MIME types, base_url()
@@ -108,9 +125,11 @@ graph TD
 ├── includes/
 │   ├── auth.php                  # Authentication, sessions, RBAC & CSRF safeguards
 │   ├── footer.php                # Common markup footer, modals, dynamic script loader
-│   ├── header.php                # Common markup header, navbar, session badges
+│   ├── header.php                # Common markup header, navbar, profile dropdown & admin menu
 │   ├── ImageProcessor.php        # Core transformation service (Imagick + GD + Slugify)
-│   └── logger.php                # Append-only file logger with JSON context
+│   ├── logger.php                # Append-only file logger with JSON context
+│   ├── Mailer.php                # Native socket-based RFC 5321 SMTP client & HTML templates
+│   └── settings.php              # Key-value system settings service & SMTP helpers
 ├── logs/
 │   └── debug.log                 # Server-side audit log
 ├── uploads/
@@ -124,7 +143,9 @@ graph TD
 ├── logout.php                    # Controller: Session termination & redirect
 ├── logs.php                      # View: System telemetry, stats & live terminal viewer
 ├── media.php                     # View: Image gallery, URL copier & deletion manager
+├── profile.php                   # View: User profile details & password change
 ├── schema.sql                    # Initial SQL DDL schema & seed admin
+├── smtp.php                      # View: Admin SMTP configuration & live test terminal
 ├── test_debug.php                # Diagnostic probe script (extensions, DB, write tests)
 └── users.php                     # View: User management & RBAC administration
 ```
@@ -162,6 +183,12 @@ erDiagram
         tinyint is_compressed
         int created_by FK
         timestamp created_at
+    }
+    settings {
+        int id PK
+        varchar setting_key UK
+        longtext setting_value
+        timestamp updated_at
     }
 ```
 
@@ -201,6 +228,16 @@ Main metadata catalog for every processed and optimized asset.
 | `is_compressed` | `TINYINT(1)` | NO | | `0` | Boolean flag (1 = compressed, 0 = standard). |
 | `created_by` | `INT` | YES | | `NULL` | Foreign key referencing `users.id`. |
 | `created_at` | `TIMESTAMP` | YES | `INDEX idx_media_created_at` | `CURRENT_TIMESTAMP` | Timestamp of upload completion. |
+
+#### Table: `settings`
+Persistent key-value system settings store, used for global configurations including SMTP credentials without overwriting on FTP syncs.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `INT` | NO | `PRIMARY KEY AUTO_INCREMENT` | NULL | Unique setting row identifier. |
+| `setting_key` | `VARCHAR(100)` | NO | `UNIQUE INDEX idx_settings_key` | NULL | Unique parameter key identifier (e.g. `smtp_config`). |
+| `setting_value` | `LONGTEXT` | YES | | NULL | Serialized JSON string or raw text payload. |
+| `updated_at` | `TIMESTAMP` | YES | | `CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | Last modification timestamp. |
 
 ---
 
@@ -358,7 +395,36 @@ Handles security contexts, cookie protection, role verification, and anti-CSRF t
 
 ---
 
-### 5.3 `logger.php` (Structured Telemetry)
+### 5.3 `settings.php` (System Configuration & SMTP Persistence)
+Key-value settings repository persisting global configurations to MySQL `settings` table.
+
+#### Core Functions:
+- `get_setting(string $key, mixed $default = null): mixed`: Retrieves a setting by key and automatically deserializes JSON or returns raw string/default.
+- `set_setting(string $key, mixed $value): bool`: Persists setting via `INSERT ... ON DUPLICATE KEY UPDATE` prepared statement with automated JSON serialization for arrays/objects.
+- `get_smtp_config(): array`: Returns structured SMTP credentials dictionary with defaults (`host`, `port`, `encryption`, `auth`, `username`, `password`, `from_email`, `from_name`).
+- `save_smtp_config(array $newConfig): bool`: Merges and securely updates SMTP configuration while preserving existing password if omitted.
+
+---
+
+### 5.4 `Mailer.php` (Native Socket SMTP Engine & HTML Templates)
+Pure PHP RFC 5321 native SMTP client built on network sockets (`stream_socket_client`). Zero third-party dependencies.
+
+#### Protocol Capabilities:
+- Direct SSL socket connections on port 465 (`ssl://host:port`) and STARTTLS cryptographic negotiation on port 587 (`stream_socket_enable_crypto`).
+- Native `AUTH LOGIN` authentication support with Base64 encoding.
+- Step-by-step real-time protocol transcription (`SYS`, `CLIENT`, `SERVER`, `ERR`) for in-browser visual debugging.
+- Fully compatible with Hostinger, cPanel, Google Workspace, and transactional SMTP relays.
+
+#### Core Methods:
+- `Mailer::send(string $to, string $subject, string $htmlBody, ?array $customConfig = null): array`: Low-level socket engine executing RFC 5321 handshake (`EHLO`, `STARTTLS`, `AUTH LOGIN`, `MAIL FROM`, `RCPT TO`, `DATA`, `QUIT`).
+- `Mailer::getTemplate(string $title, string $contentHtml, ?string $ctaText = null, ?string $ctaUrl = null, ?string $footerNote = null): string`: Responsive, ultra-clean HTML email scaffolding with card layout, typography, and branded action buttons.
+- `Mailer::sendTestEmail(string $recipient, ?array $customConfig = null): array`: Dispatches an automated test email confirming SMTP health.
+- `Mailer::sendAccountCreatedEmail(string $name, string $email, string $password, ?string $loginUrl = null): array`: Dispatches formatted welcome message containing initial login credentials.
+- `Mailer::sendPasswordResetEmail(string $name, string $email, string $resetUrl): array`: Dispatches single-use password recovery message.
+
+---
+
+### 5.5 `logger.php` (Structured Telemetry)
 Append-only logging utility for tracing server actions and diagnosing operational issues.
 
 #### Function: `app_log(string $message, array $context = []): void`
@@ -369,17 +435,25 @@ Append-only logging utility for tracing server actions and diagnosing operationa
 
 ---
 
-### 5.4 `header.php` & `footer.php` (Templating & Layouts)
+### 5.6 `header.php` & `footer.php` (Templating, Profile Dropdown & Layouts)
 
 #### `header.php`
 - Extracts `$currentPage` via `basename($_SERVER['PHP_SELF'])`.
 - Injects `<meta name="csrf-token" content="...">`.
 - Imports `Remix Icon v4.2.0` stylesheet via CDN.
 - Imports `assets/css/style.css` versioned with `APP_VERSION`.
-- Renders responsive navbar:
-  - Links: **Subir y Optimizar** (`index.php`), **Medios** (`media.php`).
-  - Admin-only links: **Usuarios** (`users.php`), **Logs** (`logs.php`) guarded by `is_admin()`.
-  - User identity badge (`ri-user-3-line`) and Logout trigger.
+- Renders streamlined main navigation links:
+  - **Subir y Optimizar** (`index.php`)
+  - **Medios** (`media.php`)
+- Renders **Interactive Profile Dropdown (`#user-dropdown-container`)**:
+  - Profile trigger with rounded user initial avatar circle, display name, and chevron arrow.
+  - Dropdown card containing user display name, email, and role badge (`role-admin` or `role-user`).
+  - Self-service action: **Mi Perfil y Contraseña** (`profile.php`).
+  - **Admin-Only "Configuración" Section** (rendered only when `is_admin() === true`):
+    - **Usuarios** (`users.php`)
+    - **Logs** (`logs.php`)
+    - **SMTP** (`smtp.php`)
+  - Danger action: **Cerrar Sesión** (`logout.php`).
 
 #### `footer.php`
 - Renders global Lightbox Modal markup (`#lightbox-modal`).
@@ -459,7 +533,7 @@ All API routes return JSON responses (or binary streams for download endpoints) 
 
 ### 6.3 `POST api/create_user.php`
 - **Access Level:** Admin only (`is_admin()` with database fallback check).
-- **Purpose:** Account creation for administrative and customer accounts.
+- **Purpose:** Account creation for administrative and customer accounts, with automated SMTP welcome email dispatch when configured.
 - **Input Parameters (`POST`):**
   - `name`: String user name.
   - `email`: Validated email address.
@@ -471,11 +545,93 @@ All API routes return JSON responses (or binary streams for download endpoints) 
   2. Sanitizes inputs; enforces email validation.
   3. Queries `users` table to prevent duplicate emails.
   4. Hashes password using `password_hash($password, PASSWORD_DEFAULT)`.
-  5. Inserts new user record; returns newly created user record (excluding password hash).
+  5. Inserts new user record.
+  6. **Automated Notification:** If SMTP server is configured in `settings`, attempts to dispatch `Mailer::sendAccountCreatedEmail()` with initial credentials. Logs delivery status to `logs/debug.log`.
+  7. Returns JSON with user record and `email_sent` flag.
 
 ---
 
-### 6.4 `POST api/clear_logs.php`
+### 6.4 `POST api/edit_user.php`
+- **Access Level:** Admin only (`require_admin()`).
+- **Purpose:** Updates existing user properties (Name, Email, Role) and optionally sets a new password.
+- **Input Parameters (`POST`):**
+  - `id`: Integer user ID to update.
+  - `name`: String user display name.
+  - `email`: Validated user login email.
+  - `role`: `'admin'` or `'customer'`.
+  - `password`: (Optional) New password string (min length 4). If empty, existing password is preserved.
+  - `csrf_token`: Security token.
+- **Execution Flow:**
+  1. Validates admin authentication and CSRF token.
+  2. Ensures user exists and prevents degrading the principal administrator (ID 1) to customer.
+  3. Verifies email uniqueness across all other user accounts.
+  4. If a new password is provided, computes `password_hash()`; otherwise executes an update query omitting the password column.
+  5. If the edited user is currently authenticated in the active session, syncs session state immediately.
+  6. Emits audit trail log to `logs/debug.log` with target ID, fields changed, and administrator email.
+  7. Returns JSON confirmation payload with updated user attributes.
+
+---
+
+### 6.5 `POST api/update_profile.php`
+- **Access Level:** Authenticated users (`is_logged_in()`).
+- **Purpose:** Self-service profile editing (name, login email) and optional secure password changing.
+- **Input Parameters (`POST`):**
+  - `name`: String user display name.
+  - `email`: Validated user login email.
+  - `current_password`: (Optional) Existing password required whenever changing password.
+  - `new_password`: (Optional) New password string (min length 4).
+  - `csrf_token`: Security token.
+- **Execution Flow:**
+  1. Validates authenticated session and CSRF token.
+  2. Sanitizes inputs and ensures email uniqueness across all other user accounts.
+  3. If password change fields are supplied, retrieves stored hash, verifies `current_password` via `password_verify()`, and hashes the new password.
+  4. Updates MySQL `users` record.
+  5. Dynamically refreshes active `$_SESSION['user']` so name and email updates immediately propagate to the navbar without requiring relogin.
+  6. Logs profile update event to `logs/debug.log`.
+  7. Returns JSON confirmation.
+
+---
+
+### 6.6 `POST api/save_smtp.php`
+- **Access Level:** Admin only (`require_admin()`).
+- **Purpose:** Securely persists outgoing SMTP mail server credentials to `settings` table.
+- **Input Parameters (`POST`):**
+  - `host`: SMTP hostname (e.g. `smtp.hostinger.com`).
+  - `port`: Integer port (`465`, `587`, `25`).
+  - `encryption`: Cifrado string (`ssl`, `tls`, `none`).
+  - `auth`: Checkbox boolean flag (`1` or `0`).
+  - `username`: Authentication username / mailbox address.
+  - `password`: (Optional) Mailbox password (preserves existing password if blank).
+  - `from_email`: From address header.
+  - `from_name`: From display name header.
+  - `csrf_token`: Security token.
+- **Execution Flow:**
+  1. Validates admin permissions and CSRF token.
+  2. Validates hostname, port boundary (1-65535), and sender email format.
+  3. Invokes `save_smtp_config()` to store dictionary in MySQL `settings`.
+  4. Records successful configuration save in `logs/debug.log`.
+  5. Returns JSON response.
+
+---
+
+### 6.7 `POST api/test_smtp.php`
+- **Access Level:** Admin only (`require_admin()`).
+- **Purpose:** Executes a real-time socket-level SMTP delivery test towards an arbitrary recipient and streams the complete RFC 5321 handshake transcript.
+- **Input Parameters (`POST`):**
+  - `test_email`: Target recipient email for test delivery.
+  - Form fields (`host`, `port`, `encryption`, `auth`, `username`, `password`, `from_email`, `from_name`): Allows testing unsaved form values on-the-fly before committing them to the database.
+  - `csrf_token`: Security token.
+- **Execution Flow:**
+  1. Validates admin authentication and CSRF.
+  2. Resolves test parameters from form input with fallback to stored `settings`.
+  3. Invokes `Mailer::sendTestEmail($testEmail, $customConfig)`.
+  4. Collects complete socket trace array (`transcript`) containing directional client/server dialogue steps.
+  5. Logs diagnostic result to `logs/debug.log`.
+  6. Returns JSON with `success`, friendly status message, and full `transcript` array.
+
+---
+
+### 6.8 `POST api/clear_logs.php`
 - **Access Level:** Admin only (`require_admin()`).
 - **Purpose:** Truncates `logs/debug.log`.
 - **Execution Flow:**
@@ -484,7 +640,7 @@ All API routes return JSON responses (or binary streams for download endpoints) 
 
 ---
 
-### 6.5 `GET api/download_log.php`
+### 6.9 `GET api/download_log.php`
 - **Access Level:** Admin only (`require_admin()`).
 - **Purpose:** Initiates a direct browser download of `logs/debug.log`.
 - **Headers:**
@@ -493,7 +649,7 @@ All API routes return JSON responses (or binary streams for download endpoints) 
 
 ---
 
-### 6.6 `GET api/export_csv.php`
+### 6.10 `GET api/export_csv.php`
 - **Access Level:** Authenticated users.
 - **Purpose:** Exports all media assets and metrics into an Excel-friendly CSV.
 - **Key Feature:** Emits a UTF-8 Byte Order Mark (`\xEF\xBB\xBF`) at the top of the stream so that Microsoft Excel correctly displays accented characters, symbols, and Spanish letters without encoding distortion.
@@ -501,7 +657,7 @@ All API routes return JSON responses (or binary streams for download endpoints) 
 
 ---
 
-### 6.7 `GET/POST api/download_zip.php`
+### 6.11 `GET/POST api/download_zip.php`
 - **Access Level:** Authenticated users (`is_logged_in()`).
 - **Purpose:** Multi-modal image bundling and streaming service. Supports:
   1. `all=1`: Downloads all images from the Media Library into a single `.zip` (`medios_YYYY-MM-DD_His.zip`) without deleting server files.
@@ -547,20 +703,42 @@ All API routes return JSON responses (or binary streams for download endpoints) 
     - **"Descargar Todo en ZIP" (`#btn-export-zip`):** Triggers `api/download_zip.php?all=1` to package all current media into a downloadable `.zip` archive without altering server files.
     - **"Exportar en CSV" (`#btn-export-csv`):** Direct download link to `api/export_csv.php`.
     - **"Subir más":** Navigation shortcut to `index.php`.
+  - **Bulk Selection Bar (`#bulk-actions-bar`):** Floating dynamic bar rendered when items are checked, providing batch download as ZIP and multi-item deletion with confirmation dialog.
   - **Live Search Field (`#media-search`):** Client-side instant filter querying filenames and original names.
-  - **Data Table:** Renders thumbnail preview (with Lightbox click trigger), filename, dimensions, weight comparison, savings tag, direct URL copy field, and deletion trigger.
+  - **Data Table:** Renders batch checkboxes, thumbnail preview (with Lightbox click trigger), filename, dimensions, weight comparison, savings tag, direct URL copy field, and deletion trigger.
 
 ---
 
-### 7.3 `users.php` (Access Control & User Management)
+### 7.3 `profile.php` (Personal Profile & Password Management)
+- **Controller Logic:** Calls `require_login()`. Queries fresh account record from `users` table for currently authenticated user ID.
+- **View Components:**
+  - **Personal Information Card (`#profile-info-form`):** Displays and updates user full name and login email address.
+  - **Security & Password Card (`#profile-password-form`):** Validates current password, accepts new password (min length 4) with interactive visibility toggle buttons (eye icon) on both password fields, eliminating redundant confirmation input.
+  - **AJAX Feedback & DOM Sync:** Submits asynchronously to `api/update_profile.php` and dynamically updates visible user avatar, navbar badge, and email tags across the page without reloading.
+
+---
+
+### 7.4 `smtp.php` (SMTP Server Configuration & Live Diagnostics)
+- **Controller Logic:** Calls `require_login()` and `require_admin()`. Retrieves active SMTP dictionary via `get_smtp_config()`.
+- **View Components:**
+  - **Server Credentials Form (`#smtp-config-form`):** Configuration for Host, Port, Encryption (SSL/STARTTLS/None), Authentication toggle, Username, Password (with toggle visibility button), From Email, and From Name.
+  - **Real-Time Interactive Test Console (`#btn-run-smtp-test`):** Input to specify test recipient email and trigger live socket connectivity verification without needing to save form first.
+  - **Protocol Terminal Emulator (`#smtp-terminal`):** Displays raw directional RFC 5321 communication steps (`SYS`, `CLIENT`, `SERVER`, `ERR`) in real time.
+  - **Interactive Template Previewer (`.template-tabs`):** Tabbed component rendering responsive live visual previews of system email templates (New Account Welcome, Password Reset, SMTP Verification).
+
+---
+
+### 7.5 `users.php` (Access Control & User Management)
 - **Controller Logic:** Calls `require_admin()`. Queries all users ordered by ID.
 - **View Components:**
-  - **User Roster Table:** ID, name, email, role badge (`ADMIN` in emerald, `CUSTOMER` in indigo), and registration timestamp.
+  - **User Roster Table:** ID, name, email, role badge (`ADMIN` in emerald, `CUSTOMER` in indigo), registration timestamp, and Action column with "Editar" trigger.
   - **Creation Modal (`#user-modal`):** AJAX form to provision new administrators or customers with instantaneous DOM row injection without full page reload.
+  - **Edition Modal (`#edit-user-modal`):** AJAX form to modify name, email, role, and optionally reset/change password. Dynamically protects root Administrator (ID 1) from role demotion.
+  - **Reactive DOM Update:** Submits asynchronously to `api/edit_user.php`, immediately updating the user's table row, badge, and dataset in real time without refreshing the page.
 
 ---
 
-### 7.4 `logs.php` (Diagnostics & Audit Console)
+### 7.6 `logs.php` (Diagnostics & Audit Console)
 - **Controller Logic:** Calls `require_admin()`. Reads line count and size of `logs/debug.log`. Detects active graphics engine (`Imagick` or `GD`).
 - **View Components:**
   - **KPI Metrics Grid:** Total log lines, log file size, total conversions count, active compression engine.
@@ -574,7 +752,7 @@ All API routes return JSON responses (or binary streams for download endpoints) 
 
 ---
 
-### 7.5 `login.php` & `logout.php` (Session Gateways)
+### 7.7 `login.php` & `logout.php` (Session Gateways)
 - **`login.php`:**
   - Redirects already authenticated sessions to `index.php`.
   - Processes `POST` requests via `attempt_login()`.
@@ -584,7 +762,7 @@ All API routes return JSON responses (or binary streams for download endpoints) 
 
 ---
 
-### 7.6 `test_debug.php` (System Diagnostics Probe)
+### 7.8 `test_debug.php` (System Diagnostics Probe)
 - **Execution Model:** Direct browser or CLI access (`Content-Type: text/plain`).
 - **Rule Compliance:** Satisfies project rules by outputting complete diagnostic results via `print_r` while simultaneously logging them to `logs/debug.log`.
 - **Diagnostic Matrix:**

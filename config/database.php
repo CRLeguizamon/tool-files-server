@@ -113,6 +113,15 @@ function init_database_schema(PDO $pdo): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
 
+        // 3. Tabla de Configuraciones del Sistema (SMTP, generales)
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS `settings` (
+              `setting_key` VARCHAR(100) NOT NULL PRIMARY KEY,
+              `setting_value` TEXT NULL,
+              `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+
         // 3. Crear usuario admin inicial si no existe
         $stmt = $pdo->prepare("SELECT `id` FROM `users` WHERE `email` = ? LIMIT 1");
         $stmt->execute(['hola@devcristian.com']);

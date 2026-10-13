@@ -111,4 +111,41 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Controlador del Menú Desplegable de Perfil
+  const userDropdownContainer = document.getElementById('user-dropdown-container');
+  const userMenuBtn = document.getElementById('user-menu-btn');
+
+  if (userDropdownContainer && userMenuBtn) {
+    console.log('[Dropdown] Configurando menú de perfil y configuración...');
+
+    userMenuBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isActive = userDropdownContainer.classList.toggle('active');
+      userMenuBtn.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+      console.log(`[Dropdown] Menú de usuario ${isActive ? 'abierto' : 'cerrado'}`);
+    });
+
+    // Cerrar al hacer clic fuera del menú
+    document.addEventListener('click', (e) => {
+      if (!userDropdownContainer.contains(e.target)) {
+        if (userDropdownContainer.classList.contains('active')) {
+          userDropdownContainer.classList.remove('active');
+          userMenuBtn.setAttribute('aria-expanded', 'false');
+          console.log('[Dropdown] Cerrado por clic fuera');
+        }
+      }
+    });
+
+    // Cerrar con la tecla Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && userDropdownContainer.classList.contains('active')) {
+        userDropdownContainer.classList.remove('active');
+        userMenuBtn.setAttribute('aria-expanded', 'false');
+        userMenuBtn.focus();
+        console.log('[Dropdown] Cerrado mediante tecla Escape');
+      }
+    });
+  }
 });
+
