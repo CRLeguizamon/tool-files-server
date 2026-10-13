@@ -12,12 +12,13 @@ date_default_timezone_set('America/Bogota');
 
 // Título de la aplicación
 define('APP_NAME', 'Image Optimizer');
-define('APP_VERSION', '1.0.0');
+define('APP_VERSION', '1.0.4');
 
 // Rutas del servidor
 define('ROOT_PATH', dirname(__DIR__));
 define('UPLOAD_DIR', ROOT_PATH . '/uploads');
 define('THUMB_DIR', ROOT_PATH . '/uploads/thumbs');
+define('TEMP_ZIP_DIR', ROOT_PATH . '/uploads/temp_zip');
 define('LOGS_DIR', ROOT_PATH . '/logs');
 
 // Parámetros de procesamiento de imágenes

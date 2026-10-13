@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const widthInput = document.getElementById('max-width-input');
   const compressCheck = document.getElementById('compress-check');
   const convertJpgCheck = document.getElementById('convert-jpg-check');
+  const zipOnlyCheck = document.getElementById('zip-only-check');
   const queueSection = document.getElementById('queue-section');
   const queueList = document.getElementById('queue-list');
   const progressBar = document.getElementById('progress-bar-fill');
@@ -24,6 +25,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let queue = [];
   let isProcessing = false;
+
+  // Actualizar texto del botón según si se selecciona Descargar como ZIP
+  if (zipOnlyCheck && btnProcess) {
+    zipOnlyCheck.addEventListener('change', () => {
+      if (zipOnlyCheck.checked) {
+        btnProcess.innerHTML = '<i class="ri-file-zip-line"></i> Procesar y Descargar ZIP';
+        console.log('[Config] Modo activado: Descarga automática de archivo ZIP al completar el lote.');
+      } else {
+        btnProcess.innerHTML = '<i class="ri-sparkling-2-line"></i> Procesar Imágenes';
+        console.log('[Config] Modo estándar: Procesar y guardar en Biblioteca de Medios.');
+      }
+    });
+  }
 
   // 1. Sincronización Bidireccional de Ancho Máximo (hasta 2048px, default 1920px)
   if (widthSlider && widthInput) {
@@ -183,27 +197,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (widthInput) widthInput.disabled = true;
     compressCheck.disabled = true;
     if (convertJpgCheck) convertJpgCheck.disabled = true;
+    if (zipOnlyCheck) zipOnlyCheck.disabled = true;
 
     const maxWidth = parseInt(widthInput?.value || widthSlider?.value || 1920, 10);
     const compress = compressCheck.checked ? 1 : 0;
-    const convertJpg = (convertJpgCheck && convertJpgCheck.checked) ? 1 : 0;
+    const convertJpg = convertJpgCheck ? (convertJpgCheck.checked ? 1 : 0) : 1;
+    const zipOnly = zipOnlyCheck ? (zipOnlyCheck.checked ? 1 : 0) : 0;
+    const batchId = zipOnly ? ('batch_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8)) : '';
 
-    console.log(`[Lote] Iniciando procesamiento de ${pendingItems.length} imágenes. Ancho: ${maxWidth}px, Comprimir: ${compress}, Convertir JPG: ${convertJpg}`);
+    console.log(`[Lote] Iniciando procesamiento de ${pendingItems.length} imágenes. Ancho: ${maxWidth}px, Comprimir: ${compress}, Convertir JPG: ${convertJpg}, Descargar ZIP: ${zipOnly}, BatchID: ${batchId || 'N/A'}`);
 
     let completedCount = 0;
+    let successCount = 0;
+    const processedIds = [];
     const totalToProcess = pendingItems.length;
 
     for (const item of pendingItems) {
       item.status = 'processing';
       updateItemStatus(item, 'processing', '<i class="ri-loader-4-line ri-spin"></i> Procesando...');
 
-      console.log(`[Lote AJAX] Enviando imagen: ${item.file.name} (${(item.file.size / 1024).toFixed(1)} KB) | Convertir JPG: ${convertJpg}`);
+      console.log(`[Lote AJAX] Enviando imagen: ${item.file.name} (${(item.file.size / 1024).toFixed(1)} KB) | Convertir JPG: ${convertJpg} | Modo ZIP: ${zipOnly}`);
 
       const formData = new FormData();
       formData.append('image', item.file);
       formData.append('max_width', maxWidth);
       formData.append('compress', compress);
       formData.append('convert_jpg', convertJpg);
+      formData.append('zip_only', zipOnly);
+      if (batchId) {
+        formData.append('batch_id', batchId);
+      }
       formData.append('csrf_token', csrfToken);
 
       try {
@@ -217,17 +240,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (response.ok && data.success) {
           item.status = 'done';
           item.result = data.data;
+          successCount++;
+          if (data.data && data.data.id) {
+            processedIds.push(data.data.id);
+          }
           const savings = data.data.saved_percent > 0 ? `-${data.data.saved_percent}%` : '0%';
           const newSizeMb = (data.data.file_size / (1024 * 1024)).toFixed(2);
           const newSizeDisplay = data.data.file_size >= 1048576 
             ? `${newSizeMb} MB` 
             : `${(data.data.file_size / 1024).toFixed(1)} KB`;
           const isConverted = data.data.is_converted_jpg ? ' • JPG' : '';
+          const zipTag = zipOnly ? ' • En ZIP' : '';
 
           updateItemStatus(
             item, 
             'done', 
-            `<i class="ri-checkbox-circle-line"></i> ${data.data.filename} (${newSizeDisplay} • Ahorro: ${savings}${isConverted})`
+            `<i class="ri-checkbox-circle-line"></i> ${data.data.filename} (${newSizeDisplay} • Ahorro: ${savings}${isConverted}${zipTag})`
           );
 
           console.log(`[Lote AJAX] Éxito procesando ${item.file.name} -> ${data.data.filename}:`, data.data);
@@ -253,14 +281,54 @@ document.addEventListener('DOMContentLoaded', () => {
     if (widthInput) widthInput.disabled = false;
     compressCheck.disabled = false;
     if (convertJpgCheck) convertJpgCheck.disabled = false;
+    if (zipOnlyCheck) zipOnlyCheck.disabled = false;
 
-    console.log(`[Lote Finalizado] Se han procesado ${completedCount} de ${totalToProcess} imágenes.`);
-    showToast(`Lote completado: ${completedCount} imágenes procesadas.`, 'success');
+    console.log(`[Lote Finalizado] Se han procesado ${completedCount} de ${totalToProcess} imágenes (${successCount} exitosas).`);
 
-    // Botón de acceso directo a medios
     const actionWrap = document.getElementById('queue-completed-actions');
-    if (actionWrap) {
-      actionWrap.style.display = 'block';
+    const btnDownloadBatchZip = document.getElementById('btn-download-batch-zip');
+    const btnGoMedia = document.getElementById('btn-go-media');
+
+    if (successCount > 0 && processedIds.length > 0) {
+      const zipDownloadUrl = `api/download_zip.php?ids=${encodeURIComponent(processedIds.join(','))}`;
+
+      if (btnDownloadBatchZip) {
+        btnDownloadBatchZip.href = zipDownloadUrl;
+        btnDownloadBatchZip.setAttribute('download', `lote-imagenes-${Date.now()}.zip`);
+        btnDownloadBatchZip.innerHTML = `<i class="ri-file-zip-line"></i> Descargar este Lote en ZIP (${successCount} imágenes)`;
+        btnDownloadBatchZip.style.display = 'inline-flex';
+        btnDownloadBatchZip.title = `Descargar archivo ZIP con las ${successCount} imágenes procesadas`;
+        console.log(`[ZIP Lote] Enlace ZIP configurado para ${successCount} imágenes: ${zipDownloadUrl}`);
+      }
+
+      if (zipOnly) {
+        console.log(`[ZIP Auto] Disparando descarga automática: ${zipDownloadUrl}`);
+        showToast(`Descargando archivo ZIP con las ${successCount} imágenes...`, 'success');
+        const tempLink = document.createElement('a');
+        tempLink.href = zipDownloadUrl;
+        tempLink.setAttribute('download', `lote-imagenes-${Date.now()}.zip`);
+        tempLink.style.display = 'none';
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        setTimeout(() => {
+          tempLink.remove();
+        }, 1500);
+      } else {
+        showToast(`Lote completado: ${completedCount} imágenes procesadas exitosamente.`, 'success');
+      }
+
+      if (actionWrap) {
+        if (btnGoMedia) btnGoMedia.style.display = 'inline-flex';
+        actionWrap.style.display = 'block';
+      }
+    } else if (successCount > 0) {
+      showToast(`Lote completado: ${completedCount} imágenes procesadas exitosamente.`, 'success');
+      if (actionWrap) {
+        if (btnGoMedia) btnGoMedia.style.display = 'inline-flex';
+        actionWrap.style.display = 'block';
+      }
+    } else {
+      showToast('No se pudo procesar ninguna imagen con éxito.', 'error');
     }
   });
 

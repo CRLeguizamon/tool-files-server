@@ -1,6 +1,6 @@
 <?php
 /**
- * Sección de Medios: Tabla de Imágenes Optimizadas, Copiado de URL y Exportación a CSV
+ * Sección de Medios: Tabla de Imágenes Optimizadas, Acciones en Lote, Copiado de URL y Exportación
  */
 
 declare(strict_types=1);
@@ -36,38 +36,55 @@ require_once __DIR__ . '/includes/header.php';
   <div>
     <h1 class="page-title">Biblioteca de Medios</h1>
     <p class="page-desc">
-      Total: <strong><?= $totalItems ?></strong> imágenes 
+      Total: <strong id="total-media-count"><?= $totalItems ?></strong> imágenes 
       <?php if ($totalItems > 0): ?>
-        &bull; Espacio optimizado: <strong><?= formatBytes((int) $totalFinalBytes) ?></strong>
+        &bull; Espacio optimizado: <strong id="total-final-bytes"><?= formatBytes((int) $totalFinalBytes) ?></strong>
         <?php if ($globalSavedPct > 0): ?>
-          <span class="savings-tag">Ahorro global: -<?= $globalSavedPct ?>%</span>
+          <span id="savings-tag-header" class="savings-tag">Ahorro global: -<?= $globalSavedPct ?>%</span>
         <?php endif; ?>
       <?php endif; ?>
     </p>
   </div>
 
   <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-    <button type="button" id="btn-export-csv" class="btn btn-outline" <?= $totalItems === 0 ? 'disabled' : '' ?>>
+    <a 
+      href="api/download_zip.php?all=1" 
+      id="btn-export-zip" 
+      class="btn btn-primary <?= $totalItems === 0 ? 'disabled' : '' ?>" 
+      <?= $totalItems === 0 ? 'aria-disabled="true" style="pointer-events: none; opacity: 0.5;"' : 'download' ?> 
+      title="Descargar todas las imágenes optimizadas en un archivo ZIP"
+    >
+      <i class="ri-file-zip-line"></i> Descargar Todo en ZIP
+    </a>
+    <a 
+      href="api/export_csv.php" 
+      id="btn-export-csv" 
+      class="btn btn-outline <?= $totalItems === 0 ? 'disabled' : '' ?>" 
+      <?= $totalItems === 0 ? 'aria-disabled="true" style="pointer-events: none; opacity: 0.5;"' : 'download' ?> 
+      title="Exportar reporte de medios a formato CSV"
+    >
       <i class="ri-file-excel-2-line"></i> Exportar en CSV
-    </button>
-    <a href="index.php" class="btn btn-primary">
+    </a>
+    <a href="index.php" class="btn btn-outline">
       <i class="ri-upload-cloud-line"></i> Subir más
     </a>
   </div>
 </div>
 
-<?php if ($totalItems === 0): ?>
-  <div class="card" style="text-align: center; padding: 4rem 2rem;">
-    <div style="font-size: 3rem; margin-bottom: 1rem; color: var(--text-muted);">
-      <i class="ri-image-add-line"></i>
-    </div>
-    <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">Aún no hay imágenes procesadas</h2>
-    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Comienza subiendo tus archivos JPG, PNG, WEBP o AVIF para optimizarlos.</p>
-    <a href="index.php" class="btn btn-primary">
-      <i class="ri-upload-cloud-line"></i> Subir mi primer lote
-    </a>
+<!-- Tarjeta de Estado Vacío (Visible si no hay imágenes o tras borrar todas) -->
+<div id="media-empty-card" class="card" style="text-align: center; padding: 4rem 2rem; <?= $totalItems > 0 ? 'display: none;' : '' ?>">
+  <div style="font-size: 3rem; margin-bottom: 1rem; color: var(--text-muted);">
+    <i class="ri-image-add-line"></i>
   </div>
-<?php else: ?>
+  <h2 style="font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem;">Aún no hay imágenes procesadas</h2>
+  <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Comienza subiendo tus archivos JPG, PNG, WEBP o AVIF para optimizarlos.</p>
+  <a href="index.php" class="btn btn-primary">
+    <i class="ri-upload-cloud-line"></i> Subir mi primer lote
+  </a>
+</div>
+
+<!-- Contenedor Principal de Medios (Oculto si totalItems es 0) -->
+<div id="media-content-wrap" style="<?= $totalItems === 0 ? 'display: none;' : '' ?>">
 
   <!-- Barra de Filtros y Búsqueda -->
   <div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
@@ -81,9 +98,31 @@ require_once __DIR__ . '/includes/header.php';
           style="padding-left: 0.85rem;"
         >
       </div>
-      <div style="color: var(--text-muted); font-size: 0.875rem;">
+      <div id="media-showing-count" style="color: var(--text-muted); font-size: 0.875rem;">
         Mostrando <?= $totalItems ?> imágenes
       </div>
+    </div>
+  </div>
+
+  <!-- Barra de Acciones en Lote (Bulk Actions) -->
+  <div id="bulk-actions-bar" class="bulk-actions-bar" style="display: none;">
+    <div class="bulk-info">
+      <span class="bulk-badge">
+        <i class="ri-checkbox-circle-line"></i> 
+        <span id="bulk-count">0</span> seleccionadas
+      </span>
+      <span id="bulk-size-text" style="font-size: 0.825rem; color: var(--text-muted);"></span>
+    </div>
+    <div class="bulk-buttons">
+      <a href="#" id="btn-bulk-zip" class="btn btn-primary btn-sm" download title="Descargar imágenes seleccionadas en un archivo ZIP">
+        <i class="ri-file-zip-line"></i> Descargar ZIP (<span id="bulk-zip-count">0</span>)
+      </a>
+      <button type="button" id="btn-bulk-delete" class="btn btn-danger-sm" title="Eliminar las imágenes seleccionadas de forma permanente">
+        <i class="ri-delete-bin-line"></i> Borrar seleccionadas (<span id="bulk-delete-count">0</span>)
+      </button>
+      <button type="button" id="btn-bulk-cancel" class="btn btn-outline btn-sm" title="Cancelar selección de imágenes">
+        <i class="ri-close-line"></i> Deseleccionar
+      </button>
     </div>
   </div>
 
@@ -92,6 +131,14 @@ require_once __DIR__ . '/includes/header.php';
     <table class="media-table">
       <thead>
         <tr>
+          <th class="col-checkbox">
+            <input 
+              type="checkbox" 
+              id="select-all-media" 
+              class="custom-checkbox" 
+              title="Seleccionar o deseleccionar todas las imágenes visibles"
+            >
+          </th>
           <th style="width: 70px;">Miniatura</th>
           <th>Nombre del Archivo</th>
           <th>Dimensiones</th>
@@ -101,7 +148,7 @@ require_once __DIR__ . '/includes/header.php';
           <th style="text-align: right; width: 140px;">Acciones</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="media-tbody">
         <?php foreach ($mediaItems as $item): ?>
           <?php 
             $fullUrl = base_url($item['file_path']);
@@ -114,8 +161,19 @@ require_once __DIR__ . '/includes/header.php';
           <tr 
             id="media-row-<?= $item['id'] ?>" 
             class="media-row" 
+            data-id="<?= $item['id'] ?>"
+            data-name="<?= htmlspecialchars($item['original_name']) ?>"
+            data-size="<?= (int) $item['file_size'] ?>"
             data-search="<?= htmlspecialchars($item['filename'] . ' ' . $item['original_name']) ?>"
           >
+            <td class="col-checkbox">
+              <input 
+                type="checkbox" 
+                class="custom-checkbox row-select-check" 
+                data-id="<?= $item['id'] ?>" 
+                aria-label="Seleccionar imagen"
+              >
+            </td>
             <td>
               <img 
                 src="<?= htmlspecialchars($thumbUrl) ?>" 
@@ -202,6 +260,6 @@ require_once __DIR__ . '/includes/header.php';
     </table>
   </div>
 
-<?php endif; ?>
+</div>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

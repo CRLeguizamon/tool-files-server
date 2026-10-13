@@ -79,6 +79,19 @@ function init_database_schema(PDO $pdo): void
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         ");
 
+        // Migración automática: asegurar que 'name' y 'role' existen en 'users' si la tabla ya existía previamente
+        try {
+            $userCols = $pdo->query("SHOW COLUMNS FROM `users`")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('name', $userCols, true)) {
+                $pdo->exec("ALTER TABLE `users` ADD COLUMN `name` VARCHAR(100) NOT NULL DEFAULT 'Administrador' AFTER `password`");
+            }
+            if (!in_array('role', $userCols, true)) {
+                $pdo->exec("ALTER TABLE `users` ADD COLUMN `role` VARCHAR(30) NOT NULL DEFAULT 'admin' AFTER `name`");
+            }
+        } catch (\Throwable $e) {
+            // Ignorar si las columnas ya existen
+        }
+
         // 2. Tabla de Medios / Imágenes
         $pdo->exec("
             CREATE TABLE IF NOT EXISTS `media` (

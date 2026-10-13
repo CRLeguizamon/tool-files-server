@@ -44,7 +44,9 @@ try {
     // Parámetros de procesamiento
     $maxWidth = isset($_POST['max_width']) ? (int) $_POST['max_width'] : DEFAULT_MAX_WIDTH;
     $compress = isset($_POST['compress']) ? filter_var($_POST['compress'], FILTER_VALIDATE_BOOLEAN) : true;
-    $convertJpg = isset($_POST['convert_jpg']) ? filter_var($_POST['convert_jpg'], FILTER_VALIDATE_BOOLEAN) : false;
+    $convertJpg = isset($_POST['convert_jpg']) ? filter_var($_POST['convert_jpg'], FILTER_VALIDATE_BOOLEAN) : true;
+    $zipOnly = isset($_POST['zip_only']) ? filter_var($_POST['zip_only'], FILTER_VALIDATE_BOOLEAN) : false;
+    $batchId = isset($_POST['batch_id']) ? preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $_POST['batch_id']) : '';
 
     // Procesar la imagen (redimensiona, formatea nombre a slug, comprime y opcionalmente convierte a JPG)
     $result = ImageProcessor::process($_FILES['image'], $maxWidth, $compress, $convertJpg);

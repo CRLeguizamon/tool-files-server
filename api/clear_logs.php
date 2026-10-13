@@ -8,7 +8,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 require_once dirname(__DIR__) . '/includes/auth.php';
-require_login();
+require_admin();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

@@ -6,7 +6,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/includes/auth.php';
-require_login();
+require_admin();
 
 $logFile = LOGS_DIR . '/debug.log';
 

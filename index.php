@@ -107,6 +107,18 @@ require_once __DIR__ . '/includes/header.php';
       </label>
     </div>
 
+    <!-- Checkbox Descargar como ZIP -->
+    <div class="control-item" style="justify-content: center;">
+      <label class="checkbox-label" for="zip-only-check" title="Descarga automáticamente las imágenes optimizadas en un archivo ZIP al completar el lote.">
+        <input 
+          type="checkbox" 
+          id="zip-only-check" 
+          class="custom-checkbox"
+        >
+        <span><i class="ri-file-zip-line" style="color: var(--primary);"></i> Descargar lote en ZIP al finalizar</span>
+      </label>
+    </div>
+
     <!-- Botón Procesar -->
     <div class="control-item" style="justify-content: center;">
       <button type="button" id="btn-process" class="btn btn-primary" disabled>
@@ -135,9 +147,14 @@ require_once __DIR__ . '/includes/header.php';
   <div id="queue-list" class="queue-list"></div>
 
   <div id="queue-completed-actions" style="display: none; margin-top: 1.5rem; text-align: center;">
-    <a href="media.php" class="btn btn-primary">
-      <i class="ri-image-line"></i> Ver todas las imágenes en la Biblioteca de Medios
-    </a>
+    <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+      <a href="#" id="btn-download-batch-zip" class="btn btn-primary" style="display: none;" download>
+        <i class="ri-file-zip-line"></i> Descargar este Lote en ZIP
+      </a>
+      <a href="media.php" id="btn-go-media" class="btn btn-outline">
+        <i class="ri-image-line"></i> Ver todas las imágenes en Medios
+      </a>
+    </div>
   </div>
 </div>
 

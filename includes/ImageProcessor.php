@@ -86,11 +86,23 @@ class ImageProcessor
      *
      * @param string $slug
      * @param string $ext
+     * @param string|null $customDir Si se especifica, comprueba colisiones únicamente en esa carpeta (modo ZIP temporal)
      * @return string
      */
-    public static function generateUniqueFilename(string $slug, string $ext): string
+    public static function generateUniqueFilename(string $slug, string $ext, ?string $customDir = null): string
     {
         $candidate = "{$slug}.{$ext}";
+
+        if ($customDir !== null) {
+            if (!file_exists($customDir . '/' . $candidate)) {
+                return $candidate;
+            }
+            $counter = 1;
+            while (file_exists($customDir . "/{$slug}-{$counter}.{$ext}")) {
+                $counter++;
+            }
+            return "{$slug}-{$counter}.{$ext}";
+        }
 
         // Comprobación inicial: si no existe en uploads ni en BD, se usa tal cual
         if (!file_exists(UPLOAD_DIR . '/' . $candidate) && !self::nameExistsInDb($candidate)) {
@@ -116,13 +128,17 @@ class ImageProcessor
      * @param int $maxWidth Ancho máximo permitido (no agranda imágenes menores)
      * @param bool $compress Si debe aplicar compresión agresiva (< 1 MB)
      * @param bool $convertToJpg Si debe convertir a JPG (si es JPG se ignora, si es PNG se cambia)
+     * @param string|null $customOutputDir Carpeta temporal personalizada (para lotes ZIP sin guardar en servidor)
+     * @param bool $generateThumb Si debe generar miniatura (false en modo ZIP temporal)
      * @return array
      */
     public static function process(
         array $fileInput, 
         int $maxWidth = DEFAULT_MAX_WIDTH, 
         bool $compress = true,
-        bool $convertToJpg = false
+        bool $convertToJpg = false,
+        ?string $customOutputDir = null,
+        bool $generateThumb = true
     ): array {
         // 1. Validaciones básicas del archivo subido
         $isUploaded = is_uploaded_file($fileInput['tmp_name'])
@@ -175,10 +191,11 @@ class ImageProcessor
         $maxWidth = max(MIN_ALLOWED_WIDTH, min(MAX_ALLOWED_WIDTH, $maxWidth));
 
         // 5. Asegurar existencia de carpetas de destino
-        if (!is_dir(UPLOAD_DIR)) {
-            @mkdir(UPLOAD_DIR, 0755, true);
+        $targetDir = $customOutputDir !== null ? rtrim($customOutputDir, '/\\') : UPLOAD_DIR;
+        if (!is_dir($targetDir)) {
+            @mkdir($targetDir, 0755, true);
         }
-        if (!is_dir(THUMB_DIR)) {
+        if ($generateThumb && $customOutputDir === null && !is_dir(THUMB_DIR)) {
             @mkdir(THUMB_DIR, 0755, true);
         }
 
@@ -187,10 +204,10 @@ class ImageProcessor
         // - Solo si se repite agrega número progresivo: hola-como-estas-1.extension
         $rawBaseName = pathinfo($originalName, PATHINFO_FILENAME);
         $slug = self::slugify($rawBaseName);
-        $uniqueFilename = self::generateUniqueFilename($slug, $targetExt);
+        $uniqueFilename = self::generateUniqueFilename($slug, $targetExt, $customOutputDir);
 
-        $destPath = UPLOAD_DIR . '/' . $uniqueFilename;
-        $thumbPath = THUMB_DIR . '/' . $uniqueFilename;
+        $destPath = $targetDir . '/' . $uniqueFilename;
+        $thumbPath = ($generateThumb && $customOutputDir === null) ? (THUMB_DIR . '/' . $uniqueFilename) : null;
 
         app_log('Iniciando procesamiento de imagen', [
             'original'        => $originalName,
@@ -201,6 +218,7 @@ class ImageProcessor
             'convertido_jpg'  => $shouldConvertToJpg,
             'max_width'       => $maxWidth,
             'compress'        => $compress,
+            'modo_temporal'   => $customOutputDir !== null,
         ]);
 
         // 7. Procesar usando Imagick o GD
@@ -248,16 +266,17 @@ class ImageProcessor
             'ahorro_pct'    => $savedPercent . '%',
             'dimensiones'   => "{$processed['width']}x{$processed['height']}",
             'motor'         => $useImagick ? 'Imagick' : 'GD',
+            'modo_temporal' => $customOutputDir !== null,
         ]);
 
         return [
             'success'          => true,
             'filename'         => $uniqueFilename,
             'original_name'    => $originalName,
-            'file_path'        => 'uploads/' . $uniqueFilename,
-            'thumb_path'       => 'uploads/thumbs/' . $uniqueFilename,
-            'file_url'         => base_url('uploads/' . $uniqueFilename),
-            'thumb_url'        => base_url('uploads/thumbs/' . $uniqueFilename),
+            'file_path'        => $customOutputDir !== null ? '' : ('uploads/' . $uniqueFilename),
+            'thumb_path'       => $thumbPath !== null ? ('uploads/thumbs/' . $uniqueFilename) : '',
+            'file_url'         => $customOutputDir !== null ? '' : base_url('uploads/' . $uniqueFilename),
+            'thumb_url'        => $thumbPath !== null ? base_url('uploads/thumbs/' . $uniqueFilename) : '',
             'file_size'        => $finalSize,
             'original_size'    => $originalSize,
             'saved_bytes'      => $savedBytes,
@@ -276,7 +295,7 @@ class ImageProcessor
     private static function processWithImagick(
         string $src,
         string $dest,
-        string $thumbDest,
+        ?string $thumbDest,
         int $maxWidth,
         bool $compress,
         string $targetExt,
@@ -356,20 +375,22 @@ class ImageProcessor
         $im->writeImage($dest);
 
         // Generar miniatura (máx 260px, NUNCA agrandar imágenes que midan menos de 260px)
-        $thumb = clone $im;
-        $thumbWidth = min(260, $newWidth);
-        $thumbHeight = ($thumbWidth < $newWidth)
-            ? (int) round($newHeight * ($thumbWidth / max(1, $newWidth)))
-            : $newHeight;
+        if ($thumbDest !== null && $thumbDest !== '') {
+            $thumb = clone $im;
+            $thumbWidth = min(260, $newWidth);
+            $thumbHeight = ($thumbWidth < $newWidth)
+                ? (int) round($newHeight * ($thumbWidth / max(1, $newWidth)))
+                : $newHeight;
 
-        if ($thumbWidth < $newWidth) {
-            $thumb->resizeImage($thumbWidth, $thumbHeight, Imagick::FILTER_TRIANGLE, 1);
+            if ($thumbWidth < $newWidth) {
+                $thumb->resizeImage($thumbWidth, $thumbHeight, Imagick::FILTER_TRIANGLE, 1);
+            }
+            $thumb->stripImage();
+            $thumb->setImageCompressionQuality(75);
+            $thumb->writeImage($thumbDest);
+            $thumb->clear();
+            $thumb->destroy();
         }
-        $thumb->stripImage();
-        $thumb->setImageCompressionQuality(75);
-        $thumb->writeImage($thumbDest);
-        $thumb->clear();
-        $thumb->destroy();
 
         $im->clear();
         $im->destroy();
@@ -386,7 +407,7 @@ class ImageProcessor
     private static function processWithGD(
         string $src,
         string $dest,
-        string $thumbDest,
+        ?string $thumbDest,
         int $maxWidth,
         bool $compress,
         string $targetExt,
@@ -449,28 +470,30 @@ class ImageProcessor
         self::saveGDImage($dstImage, $dest, $targetExt, $compress ? DEFAULT_COMPRESS_QUALITY : 90);
 
         // Generar Thumbnail (máx 260px, NUNCA agrandar imágenes menores a 260px)
-        $tWidth = min(260, $newWidth);
-        $tHeight = ($tWidth < $newWidth)
-            ? (int) round($newHeight * ($tWidth / max(1, $newWidth)))
-            : $newHeight;
-        $tImage = imagecreatetruecolor($tWidth, $tHeight);
+        if ($thumbDest !== null && $thumbDest !== '') {
+            $tWidth = min(260, $newWidth);
+            $tHeight = ($tWidth < $newWidth)
+                ? (int) round($newHeight * ($tWidth / max(1, $newWidth)))
+                : $newHeight;
+            $tImage = imagecreatetruecolor($tWidth, $tHeight);
 
-        if ($targetExt === 'jpg') {
-            $tWhite = imagecolorallocate($tImage, 255, 255, 255);
-            imagefilledrectangle($tImage, 0, 0, $tWidth, $tHeight, $tWhite);
-        } elseif ($targetExt === 'png' || $targetExt === 'webp') {
-            imagealphablending($tImage, false);
-            imagesavealpha($tImage, true);
-            $transparent = imagecolorallocatealpha($tImage, 255, 255, 255, 127);
-            imagefilledrectangle($tImage, 0, 0, $tWidth, $tHeight, $transparent);
+            if ($targetExt === 'jpg') {
+                $tWhite = imagecolorallocate($tImage, 255, 255, 255);
+                imagefilledrectangle($tImage, 0, 0, $tWidth, $tHeight, $tWhite);
+            } elseif ($targetExt === 'png' || $targetExt === 'webp') {
+                imagealphablending($tImage, false);
+                imagesavealpha($tImage, true);
+                $transparent = imagecolorallocatealpha($tImage, 255, 255, 255, 127);
+                imagefilledrectangle($tImage, 0, 0, $tWidth, $tHeight, $transparent);
+            }
+
+            imagecopyresampled($tImage, $dstImage, 0, 0, 0, 0, $tWidth, $tHeight, $newWidth, $newHeight);
+            self::saveGDImage($tImage, $thumbDest, $targetExt, 75);
+            imagedestroy($tImage);
         }
-
-        imagecopyresampled($tImage, $dstImage, 0, 0, 0, 0, $tWidth, $tHeight, $newWidth, $newHeight);
-        self::saveGDImage($tImage, $thumbDest, $targetExt, 75);
 
         imagedestroy($srcImage);
         imagedestroy($dstImage);
-        imagedestroy($tImage);
 
         return [
             'width'  => $newWidth,

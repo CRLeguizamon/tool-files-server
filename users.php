@@ -157,12 +157,22 @@ document.getElementById('create-user-form').addEventListener('submit', function(
     method: 'POST',
     body: formData,
   })
-  .then(res => res.json())
-  .then(data => {
+  .then(async res => {
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error('[Users Error Raw Response]', text);
+      throw new Error(`El servidor respondió con código ${res.status} (${res.statusText || 'Error'}).`);
+    }
+    return { ok: res.ok, status: res.status, data };
+  })
+  .then(({ ok, status, data }) => {
     btn.disabled = false;
     btn.textContent = 'Guardar Usuario';
 
-    if (data.success) {
+    if (ok && data.success) {
       console.log('[Users] Usuario creado exitosamente:', data.data);
       showToast(data.message || 'Usuario creado correctamente.', 'success');
       closeUserModal();
@@ -185,15 +195,15 @@ document.getElementById('create-user-form').addEventListener('submit', function(
       `;
       tbody.appendChild(tr);
     } else {
-      console.error('[Users Error]', data.message);
-      showToast(data.message || 'Error al crear usuario.', 'error');
+      console.error('[Users Error]', data);
+      showToast(data.message || `Error al crear usuario (Código ${status}).`, 'error');
     }
   })
   .catch(err => {
     btn.disabled = false;
     btn.textContent = 'Guardar Usuario';
     console.error('[Users Network Error]', err);
-    showToast('Error de conexión al crear usuario.', 'error');
+    showToast(err.message || 'Error de conexión al crear usuario.', 'error');
   });
 });
 

@@ -20,6 +20,9 @@ uploads/*
 !uploads/thumbs/
 uploads/thumbs/*
 !uploads/thumbs/.gitkeep
+!uploads/temp_zip/
+uploads/temp_zip/*
+!uploads/temp_zip/.gitkeep
 
 # Archivos de registro y depuración
 logs/*

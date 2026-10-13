@@ -21,6 +21,8 @@ $diagnostics = [
         'pdo_mysql' => extension_loaded('pdo_mysql'),
         'imagick'   => extension_loaded('imagick'),
         'gd'        => extension_loaded('gd'),
+        'zip'       => class_exists('ZipArchive'),
+        'zlib'      => function_exists('gzdeflate'),
         'fileinfo'  => extension_loaded('fileinfo'),
         'session'   => extension_loaded('session'),
         'mbstring'  => extension_loaded('mbstring'),
@@ -59,9 +61,10 @@ if (extension_loaded('imagick') && class_exists('Imagick')) {
 
 // Comprobar permisos de carpetas
 $dirs = [
-    'uploads'        => UPLOAD_DIR,
-    'uploads/thumbs' => THUMB_DIR,
-    'logs'           => LOGS_DIR,
+    'uploads'          => UPLOAD_DIR,
+    'uploads/thumbs'   => THUMB_DIR,
+    'uploads/temp_zip' => TEMP_ZIP_DIR,
+    'logs'             => LOGS_DIR,
 ];
 
 foreach ($dirs as $key => $path) {
@@ -72,6 +75,39 @@ foreach ($dirs as $key => $path) {
         'exists'   => is_dir($path),
         'writable' => is_writable($path),
         'path'     => $path,
+    ];
+}
+
+// Probar generación activa de archivo ZIP temporal
+$testZipTarget = TEMP_ZIP_DIR . '/test_diagnostic_' . time() . '.zip';
+$zipTestSuccess = false;
+$zipTestError = null;
+
+try {
+    if (class_exists('ZipArchive')) {
+        $zip = new ZipArchive();
+        if ($zip->open($testZipTarget, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+            $zip->addFromString('test.txt', 'Prueba de diagnóstico de compresión ZIP');
+            $zipTestSuccess = $zip->close();
+        }
+    }
+    if (file_exists($testZipTarget)) {
+        $diagnostics['zip_generation_test'] = [
+            'status'   => 'EXITO',
+            'filesize' => filesize($testZipTarget) . ' bytes',
+            'path'     => $testZipTarget,
+        ];
+        @unlink($testZipTarget);
+    } else {
+        $diagnostics['zip_generation_test'] = [
+            'status'  => 'FALLO_CREACION',
+            'message' => 'No se pudo crear el archivo ZIP de prueba en ' . TEMP_ZIP_DIR,
+        ];
+    }
+} catch (\Throwable $ze) {
+    $diagnostics['zip_generation_test'] = [
+        'status' => 'ERROR',
+        'error'  => $ze->getMessage(),
     ];
 }
 
