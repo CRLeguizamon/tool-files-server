@@ -1,0 +1,12 @@
+# Prevent PHP execution in uploads directory
+Options -Indexes
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phps|pl|py|cgi|sh)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Only allow direct serving of static image files
+<FilesMatch "\.(jpg|jpeg|png|webp|avif|gif)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>

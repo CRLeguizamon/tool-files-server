@@ -1,0 +1,44 @@
+# ==============================================================================
+# Git Ignore - Image Optimizer Project
+# ==============================================================================
+
+# Credenciales y archivos sensibles del editor (evita exponer claves FTP/BD)
+.vscode/
+.agents/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Archivos de entorno y variables locales
+.env
+.env.*
+*.local
+
+# Archivos de medios subidos por usuarios (preserva la carpeta y su .htaccess)
+uploads/*
+!uploads/.htaccess
+!uploads/thumbs/
+uploads/thumbs/*
+!uploads/thumbs/.gitkeep
+
+# Archivos de registro y depuración
+logs/*
+!logs/.htaccess
+!logs/.gitkeep
+
+# Archivos de sistema operativo y temporales
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.bak
+*.swp
+*~
+
+# Entorno de pruebas temporales
+tests/
+scratch/
+
+# Paquetes y dependencias (si se agregan en el futuro)
+/vendor/
+/node_modules/

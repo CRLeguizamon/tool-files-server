@@ -1,0 +1,6 @@
+# Deny public web access to log files
+<Files "*">
+    Order allow,deny
+    Deny from all
+</Files>
+Options -Indexes

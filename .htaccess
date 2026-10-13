@@ -1,0 +1,11 @@
+# Configuración Apache / LiteSpeed para Hostinger
+Options -Indexes
+
+# Prevenir acceso a archivos de configuración sensibles y SQL
+<FilesMatch "^(schema\.sql|\.env|\.git.*|.*\.log|.*\.md)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Establecer codificación UTF-8 por defecto
+AddDefaultCharset UTF-8
