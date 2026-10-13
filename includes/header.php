@@ -51,6 +51,11 @@ $title = isset($pageTitle) ? htmlspecialchars($pageTitle) . ' • ' . APP_NAME :
           </a>
         </li>
         <?php endif; ?>
+        <li>
+          <a href="logs.php" class="nav-link <?= $currentPage === 'logs.php' ? 'active' : '' ?>">
+            <i class="ri-terminal-box-line"></i> Logs
+          </a>
+        </li>
       </ul>
     </nav>
 
